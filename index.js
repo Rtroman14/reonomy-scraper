@@ -44,12 +44,17 @@ while (run) {
     property.Url = window.location.href;
     property.Source = "Reonomy";
 
-    await delay(3000);
+    await delay(4000);
 
     try {
         // * -------------- Tab: Building & Lot --------------
-        document.querySelector("#property-details-tab-building").click();
-        await delay(3000);
+        const buildingTabButton = document.querySelector("#property-details-tab-building");
+        if (buildingTabButton !== null) {
+            buildingTabButton.click();
+        } else {
+            document.querySelector("#property-details-tab-building");
+        }
+        await delay(2000);
 
         let error = document.querySelector("#root header > h6");
 
@@ -252,6 +257,7 @@ while (run) {
 
         // * -------------- Export properties --------------
         if (currentProperty === totalProperties) {
+            console.log("currentProperty === totalProperties");
             exportFile(properties, `reonomy pages 0-${page}_${state || ""}.json`);
             properties = [];
             run = false;
