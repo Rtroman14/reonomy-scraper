@@ -256,7 +256,7 @@ while (run) {
             .innerText.split("\n");
 
         // * -------------- Export properties --------------
-        if (currentProperty === totalProperties) {
+        if (currentProperty.replace(",", "") === totalProperties.replace(",", "")) {
             console.log("currentProperty === totalProperties");
             exportFile(properties, `reonomy pages 0-${page}_${state || ""}.json`);
             properties = [];
