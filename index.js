@@ -262,7 +262,7 @@ while (run) {
             properties = [];
             run = false;
         }
-        if (page !== 0 && page % 400 === 0) {
+        if (page !== 0 && page % 100 === 0) {
             exportFile(properties, `reonomy pages 0-${page}_${state || ""}.json`);
             properties = [];
         }
