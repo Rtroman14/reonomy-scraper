@@ -1,5 +1,7 @@
 module.exports = async (page) => {
     return await page.evaluate(async () => {
+        await delay(3000);
+
         // *  ---------------- getText() ----------------------
         const getText = (doc, selector) => {
             try {
@@ -51,7 +53,6 @@ module.exports = async (page) => {
         const contactInfo = (section) => {
             try {
                 let contacts = [];
-                let contact = {};
 
                 for (const contactInfoSection of section) {
                     const sectionTitle = getText(contactInfoSection, "p.MuiTypography-root");
@@ -68,6 +69,8 @@ module.exports = async (page) => {
 
                         if (emails.length) {
                             for (const email of emails) {
+                                let contact = {};
+
                                 contact["Email"] = getText(email, ".MuiTypography-root");
                                 contact["Phone Number"] = "";
                                 contact.Outreach = "Email";
@@ -105,7 +108,7 @@ module.exports = async (page) => {
 
                 if (!isOwnerInfoShowing) {
                     dropdown.click();
-                    await delay(300);
+                    await delay(3000);
                 }
 
                 const fullName = getText(owner, ".MuiGrid-item .MuiTypography-root");

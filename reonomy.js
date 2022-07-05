@@ -5,14 +5,19 @@ const pLimit = require("p-limit");
 
 const scrapeProperty = require("./src/scrapeProperty");
 const writeCsv = require("./src/writeCsv");
+const writeJson = require("./src/writeJson");
 
 const NUM_TABS = 1;
+const FILE_NAME = "";
+const REONOMY_URL = "";
 
 const limit = pLimit(NUM_TABS);
 
 (async () => {
+    let browser;
+
     try {
-        const browser = await puppeteer.launch({ headless: false });
+        browser = await puppeteer.launch({ headless: true });
         const page = await browser.newPage();
 
         await page.setViewport({ width: 1366, height: 768 });
@@ -22,7 +27,7 @@ const limit = pLimit(NUM_TABS);
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36"
         );
 
-        let website = "https://app.reonomy.com/!/search/70aa8671-6d2f-4964-ae1d-d47daf249c9d";
+        let website = REONOMY_URL;
 
         await page.goto(website, { waitUntil: "networkidle0" });
 
@@ -31,14 +36,14 @@ const limit = pLimit(NUM_TABS);
         await page.type(`input[name="email"]`, process.env.USERNAME, { delay: 100 }); // Types slower, like a user
         await page.type(`input[name="password"]`, process.env.PASSWORD, { delay: 100 }); // Types slower, like a user
         await page.click(`button[type="submit"]`);
+        console.log("Logged in");
 
         let allProspects = [];
         let morePages = true;
-        let pageNumber;
+        let pageNumber = 1;
+        let pages = 1;
 
         while (morePages) {
-            // TODO: record page number
-
             await page.waitForSelector(`[data-testid="summary-card"]`, { visible: true });
 
             let propertyURLs = await page.evaluate(() =>
@@ -48,29 +53,58 @@ const limit = pLimit(NUM_TABS);
                 )
             );
 
-            let promises = propertyURLs
-                .slice(0, 2)
-                .map((url) => limit(() => scrapeProperty(browser, url)));
+            let promises = propertyURLs.map((url) => limit(() => scrapeProperty(browser, url)));
 
             const prospects = await Promise.all(promises);
-            allProspects = [...allProspects, ...prospects];
+            prospects.forEach((prospect) => {
+                allProspects = [...allProspects, ...prospect];
+            });
 
-            morePages = false;
+            // Next page
+            let url = await page.url();
 
-            // TODO: if next page && propertyURLs.length === 0, next page ...
-            // TODO: else: export csv, update AT
+            let nextPage = 2;
+            let nextUrl;
+
+            if (url.includes("page=")) {
+                pageNumber = Number(url.split("page=").pop());
+                nextPage = pageNumber + 1;
+                nextUrl = `${url.split("page=")[0]}page=${nextPage}`;
+            } else {
+                nextUrl = `${url}?page=${nextPage}`;
+            }
+
+            if (nextPage <= 200) {
+                await page.goto(nextUrl, { waitUntil: "networkidle0" });
+                console.log(`Next page: ${nextPage}`);
+                console.log("Left off:", url);
+            } else {
+                morePages = false;
+                console.log("Finished scraping all pages!");
+            }
+
+            if (pages % 5 === 0) {
+                console.log("Left off:", url);
+                writeJson(allProspects, `${FILE_NAME}_${pages}`);
+                allProspects = [];
+            }
+
+            pages++;
         }
 
         // close browser
         await browser.close();
         console.log("Browser closed");
+        console.log("Left off:", url);
 
-        writeCsv(allProspects, "allProspects");
+        writeJson(allProspects, FILE_NAME);
     } catch (error) {
         // close browser
         await browser.close();
+        console.log("Browser closed");
+
         console.log(`reonomy() --- ${error}`);
 
-        writeCsv(allProspects, "allProspects");
+        writeJson(allProspects, FILE_NAME);
     }
 })();
