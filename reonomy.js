@@ -15,6 +15,8 @@ const limit = pLimit(NUM_TABS);
 
 (async () => {
     let browser;
+    let allProspects = [];
+    let pages = 1;
 
     try {
         browser = await puppeteer.launch({ headless: true });
@@ -38,10 +40,8 @@ const limit = pLimit(NUM_TABS);
         await page.click(`button[type="submit"]`);
         console.log("Logged in");
 
-        let allProspects = [];
         let morePages = true;
         let pageNumber = 1;
-        let pages = 1;
 
         while (morePages) {
             await page.waitForSelector(`[data-testid="summary-card"]`, { visible: true });
@@ -56,9 +56,12 @@ const limit = pLimit(NUM_TABS);
             let promises = propertyURLs.map((url) => limit(() => scrapeProperty(browser, url)));
 
             const prospects = await Promise.all(promises);
-            prospects.forEach((prospect) => {
-                allProspects = [...allProspects, ...prospect];
-            });
+
+            if (prospects?.length) {
+                prospects.forEach((prospect) => {
+                    allProspects = [...allProspects, ...prospect];
+                });
+            }
 
             // Next page
             let url = await page.url();
@@ -76,18 +79,16 @@ const limit = pLimit(NUM_TABS);
 
             if (nextPage <= 200) {
                 await page.goto(nextUrl, { waitUntil: "networkidle0" });
-                console.log(`Next page: ${nextPage}`);
-                console.log("Left off:", url);
             } else {
                 morePages = false;
                 console.log("Finished scraping all pages!");
             }
 
-            if (pages % 5 === 0) {
-                console.log("Left off:", url);
-                writeJson(allProspects, `${FILE_NAME}_${pages}`);
-                allProspects = [];
-            }
+            // if (pages % 5 === 0) {
+            console.log("Left off:", url);
+            writeJson(allProspects, `${FILE_NAME}_${pages}`);
+            allProspects = [];
+            // }
 
             pages++;
         }
@@ -97,14 +98,14 @@ const limit = pLimit(NUM_TABS);
         console.log("Browser closed");
         console.log("Left off:", url);
 
-        writeJson(allProspects, FILE_NAME);
+        writeJson(allProspects, `${FILE_NAME}_DONE`);
     } catch (error) {
         // close browser
         await browser.close();
         console.log("Browser closed");
 
-        console.log(`reonomy() --- ${error}`);
+        console.log(`ERROR --- reonomy() --- ${error}`);
 
-        writeJson(allProspects, FILE_NAME);
+        writeJson(allProspects, `${FILE_NAME}_${pages}`);
     }
 })();

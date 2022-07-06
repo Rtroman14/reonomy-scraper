@@ -52,11 +52,13 @@ module.exports = async (browser, url) => {
         // * Close Tab
         await page.close();
 
+        // console.log("Scraped:", url);
+
         return prospects;
     } catch (error) {
         console.log("scrapeProperty.js() ---", error);
 
         await page.close();
-        return false;
+        return [];
     }
 };
