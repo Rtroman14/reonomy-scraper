@@ -12,12 +12,17 @@ const NUM_TABS = 1;
 const FILE_NAME = "";
 const REONOMY_URL = "";
 
-const limit = pLimit(NUM_TABS);
-
 (async () => {
+    const limit = pLimit(NUM_TABS);
+
     let browser;
     let allProspects = [];
     let pages = 1;
+    let morePages = true;
+    let pageNumber = 1;
+    let time;
+    let nextUrl;
+    let nextPage = 2;
 
     try {
         browser = await puppeteer.launch({ headless: false });
@@ -41,12 +46,6 @@ const limit = pLimit(NUM_TABS);
 
         await page.waitForSelector(`[data-testid="summary-card"]`, { visible: true });
         await page.goto(REONOMY_URL, { waitUntil: "networkidle0" });
-
-        let morePages = true;
-        let pageNumber = 1;
-        let time;
-        let nextUrl;
-        let nextPage = 2;
 
         while (morePages) {
             await page.waitForSelector(`[data-testid="summary-card"]`, { visible: true });
@@ -102,6 +101,7 @@ const limit = pLimit(NUM_TABS);
         console.log("Browser closed");
         console.log("Left off:", url);
 
+        time = moment().format("M.D.YYYY-hh:mm");
         writeJson(allProspects, `${FILE_NAME}_P=${pageNumber}_T=${time}`);
     } catch (error) {
         // close browser
@@ -110,6 +110,7 @@ const limit = pLimit(NUM_TABS);
 
         console.log(`ERROR --- reonomy() --- ${error}`);
 
+        time = moment().format("M.D.YYYY-hh:mm");
         writeJson(allProspects, `${FILE_NAME}_P=${pageNumber}_T=${time}`);
     }
 })();
