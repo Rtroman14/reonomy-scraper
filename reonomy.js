@@ -25,7 +25,7 @@ const REONOMY_URL = "";
     let nextPage = 2;
 
     try {
-        browser = await puppeteer.launch({ headless: false });
+        browser = await puppeteer.launch({ headless: true });
         const page = await browser.newPage();
 
         await page.setViewport({ width: 1366, height: 768 });
