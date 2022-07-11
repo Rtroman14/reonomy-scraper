@@ -20,7 +20,7 @@ const limit = pLimit(NUM_TABS);
     let pages = 1;
 
     try {
-        browser = await puppeteer.launch({ headless: true });
+        browser = await puppeteer.launch({ headless: false });
         const page = await browser.newPage();
 
         await page.setViewport({ width: 1366, height: 768 });
@@ -30,9 +30,7 @@ const limit = pLimit(NUM_TABS);
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36"
         );
 
-        let website = REONOMY_URL;
-
-        await page.goto(website, { waitUntil: "networkidle0" });
+        await page.goto(REONOMY_URL, { waitUntil: "networkidle0" });
 
         // login
         await page.waitForSelector(`input[name="email"]`, { visible: true });
@@ -40,6 +38,9 @@ const limit = pLimit(NUM_TABS);
         await page.type(`input[name="password"]`, process.env.PASSWORD, { delay: 100 }); // Types slower, like a user
         await page.click(`button[type="submit"]`);
         console.log("Logged in");
+
+        await page.waitForSelector(`[data-testid="summary-card"]`, { visible: true });
+        await page.goto(REONOMY_URL, { waitUntil: "networkidle0" });
 
         let morePages = true;
         let pageNumber = 1;
