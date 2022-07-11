@@ -1,5 +1,8 @@
-let pages = 1;
+const moment = require("moment");
+const writeJson = require("./src/writeJson");
 
-pages++;
+const time = moment().format("M.D.YYYY-hh:mm"); // Wednesday
 
-console.log(pages);
+console.log(`TEST_P=2_T=${time}`);
+
+// writeJson([{ name: "ryan" }], `TEST_P=2_T=${time}`);

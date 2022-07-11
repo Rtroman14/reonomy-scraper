@@ -6,6 +6,7 @@ const pLimit = require("p-limit");
 const scrapeProperty = require("./src/scrapeProperty");
 const writeCsv = require("./src/writeCsv");
 const writeJson = require("./src/writeJson");
+const moment = require("moment");
 
 const NUM_TABS = 1;
 const FILE_NAME = "";
@@ -42,6 +43,8 @@ const limit = pLimit(NUM_TABS);
 
         let morePages = true;
         let pageNumber = 1;
+        let time;
+        let nextUrl;
 
         while (morePages) {
             await page.waitForSelector(`[data-testid="summary-card"]`, { visible: true });
@@ -63,11 +66,9 @@ const limit = pLimit(NUM_TABS);
                 });
             }
 
-            // Next page
             let url = await page.url();
 
             let nextPage = 2;
-            let nextUrl;
 
             if (url.includes("page=")) {
                 pageNumber = Number(url.split("page=").pop());
@@ -84,9 +85,10 @@ const limit = pLimit(NUM_TABS);
                 console.log("Finished scraping all pages!");
             }
 
+            time = moment().format("M.D.YYYY-hh:mm");
             // if (pages % 5 === 0) {
-            console.log("Left off:", url);
-            writeJson(allProspects, `${FILE_NAME}_${pages}`);
+            console.log("Next url:", nextUrl);
+            writeJson(allProspects, `${FILE_NAME}_P=${pages}_T=${time}`);
             allProspects = [];
             // }
 
@@ -98,7 +100,7 @@ const limit = pLimit(NUM_TABS);
         console.log("Browser closed");
         console.log("Left off:", url);
 
-        writeJson(allProspects, `${FILE_NAME}_DONE`);
+        writeJson(allProspects, `${FILE_NAME}_P=${pages}_T=${time}`);
     } catch (error) {
         // close browser
         await browser.close();
@@ -106,6 +108,6 @@ const limit = pLimit(NUM_TABS);
 
         console.log(`ERROR --- reonomy() --- ${error}`);
 
-        writeJson(allProspects, `${FILE_NAME}_${pages}`);
+        writeJson(allProspects, `${FILE_NAME}_P=${pages}_T=${time}`);
     }
 })();
