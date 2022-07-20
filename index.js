@@ -1,284 +1,89 @@
-let properties = [];
+require("dotenv").config();
 
-let run = true;
+const puppeteer = require("puppeteer");
 
-const getText = (doc, selector) => {
-    if (doc.querySelector(selector)) {
-        return doc.querySelector(selector).innerText;
-    }
+const scrapeProperty = require("./src/scrapeProperty");
+const writeCsv = require("./src/writeCsv");
+const writeJson = require("./src/writeJson");
+const moment = require("moment");
 
-    return "";
-};
+const FILE_NAME = "Dorothy";
+const REONOMY_URL = "https://app.reonomy.com/!/search/c9719ba2-a58c-4aeb-a3de-fd44f73c705e?page=20";
 
-const phoneSection = (section) => {
-    let contacts = [];
-
-    const phoneNumbers = section.querySelectorAll(".MuiGrid-item");
-
-    if (phoneNumbers.length) {
-        for (const phoneNumber of phoneNumbers) {
-            let contact = {};
-
-            const phoneIcon = phoneNumber.querySelector(".MuiSvgIcon-root");
-
-            if (phoneIcon.innerHTML.length >= 850 && phoneIcon.innerHTML.length <= 900) {
-                contact["Phone Number"] = getText(phoneNumber, ".MuiTypography-root");
-                contact.Email = "";
-                contact.Outreach = "Text";
-
-                contacts.push(contact);
-            }
-        }
-    }
-
-    return contacts;
-};
-
-const delay = (ms) => new Promise((res) => setTimeout(res, ms));
-
-let page = 0;
-let state;
-
-while (run) {
-    let property = {};
-    property.Url = window.location.href;
-    property.Source = "Reonomy";
-
-    await delay(4000);
+(async () => {
+    let browser;
+    let allProspects = [];
+    let pages = 1;
+    let morePages = true;
+    let pageNumber = 1;
+    let time;
+    let nextUrl;
+    let nextPage = 2;
 
     try {
-        // * -------------- Tab: Building & Lot --------------
-        const buildingTabButton = document.querySelector("#property-details-tab-building");
-        if (buildingTabButton !== null) {
-            buildingTabButton.click();
-        } else {
-            document.querySelector("#property-details-tab-building");
-        }
-        await delay(2000);
+        browser = await puppeteer.launch({ headless: true });
+        const page = await browser.newPage();
 
-        let error = document.querySelector("#root header > h6");
+        await page.setViewport({ width: 1366, height: 768 });
 
-        if (error !== null) {
-            document.querySelector("#search-results-step-up").click();
-
-            await delay(4000);
-
-            document.querySelector("#property-details-tab-building").click();
-
-            await delay(1000);
-        }
-
-        property.Address = getText(document, "p[data-test-id='header-property-address']");
-
-        // format address
-        let currentState;
-        if (property.Address.split(",").length === 3) {
-            currentState = property.Address.split(", ")[2].split(" ")[0];
-            state = currentState.length > 2 ? state : currentState;
-
-            property.Street = property.Address.split(", ")[0];
-            property.City = property.Address.split(", ")[1]; // DOUBLE CHECK
-            property.Zip = property.Address.split(" ").pop();
-        } else if (property.Address.length === 2) {
-            property.State = property.Address;
-        } else {
-            currentState = property.Address.split(" ")[1];
-            state = currentState.length > 2 ? state : currentState;
-
-            property.Street = "";
-            property.City = property.Address.split(", ")[0];
-            property.Zip = property.Address.split(" ").pop();
-        }
-        property.State = state;
-
-        // * -------------- Tab: Building & Lot --------------
-        let buildingSection = document.querySelector(
-            "#property-details-section-building > div > div:nth-child(1) > div:nth-child(1)"
+        // robot detection incognito - console.log(navigator.userAgent);
+        await page.setUserAgent(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36"
         );
 
-        // * -------------- Section: Building
-        const yearBuilt = getText(buildingSection, "dl:nth-child(1) dd");
-        const yearRenovated = getText(buildingSection, "dl:nth-child(2) dd");
-        const squareFeet = getText(buildingSection, "dl:last-child dd").split(" ")[0];
-        property["Square Feet"] = squareFeet === "--" ? "" : squareFeet;
-        property["Year Built"] = yearBuilt === "--" ? "" : yearBuilt;
-        property["Year Renovated"] = yearRenovated === "--" ? "" : yearRenovated;
+        await page.goto(REONOMY_URL, { waitUntil: "networkidle0" });
 
-        // * -------------- Section: Lot
-        let lotSection = document.querySelector(
-            "#property-details-section-building > div > div:nth-child(1) > div:nth-child(2)"
-        );
-        property["Building Type"] = getText(lotSection, "dl:nth-child(1) dd");
+        // login
+        await page.waitForSelector(`input[name="email"]`, { visible: true });
+        await page.type(`input[name="email"]`, process.env.USERNAME, { delay: 100 }); // Types slower, like a user
+        await page.type(`input[name="password"]`, process.env.PASSWORD, { delay: 100 }); // Types slower, like a user
+        await page.click(`button[type="submit"]`);
+        console.log("Logged in");
 
-        // * -------------- Tab: Owner --------------
-        document.querySelector("#property-details-tab-ownership").click();
-        await delay(4000);
+        let headers = false;
+        let body = false;
 
-        // * -------------- Section: Owners
-        const ownersSection = document.querySelector("#property-details-section-ownership");
-        const owners = ownersSection.querySelectorAll(
-            "#property-details-section-ownership > section > div.MuiBox-root"
-        );
+        await page.setRequestInterception(true);
+        page.on("request", (request) => {
+            const requestUrl = request.url();
 
-        for (let owner of owners) {
-            const dropdown = owner.querySelector(".MuiGrid-item:last-child button");
+            if (requestUrl === "https://api.reonomy.com/v2/search/pins?offset=0&limit=1000") {
+                headers = request.headers();
+                body = request.postData();
+            }
 
-            if (dropdown !== null) {
-                let contact = {};
+            request.continue();
+        });
 
-                let ownerFields = owner.querySelector(".MuiDivider-root");
-                let isOwnerInfoShowing = ownerFields !== null;
+        await page.waitForSelector(`[data-testid="summary-card"]`, { visible: true });
+        await page.goto(REONOMY_URL, { waitUntil: "networkidle0" });
+        await page.waitForTimeout(15000);
+        console.log("loaded");
 
-                if (!isOwnerInfoShowing) {
-                    dropdown.click();
-                    await delay(300);
-                }
+        if (headers && body) {
+            let url = await page.url();
 
-                const fullName = getText(owner, ".MuiGrid-item .MuiTypography-root");
-
-                contact["Properties in Portfolio"] = getText(
-                    owner,
-                    ".MuiGrid-item:nth-child(3) p:nth-child(2) span"
-                );
-                contact["Portfolio Assessed Value"] = getText(
-                    owner,
-                    ".MuiGrid-item:nth-child(3) p:nth-child(4) span"
-                );
-                contact["Last Acquisition Date"] = getText(
-                    owner,
-                    ".MuiGrid-item:nth-child(4) p:nth-child(2)"
-                );
-                contact["Property Types in Portfolio"] = getText(
-                    owner,
-                    ".MuiGrid-item:nth-child(5) > div > div"
-                )
-                    .split("\n\n")
-                    .join(", ");
-
-                contact["Full Name"] = fullName;
-                contact["First Name"] = fullName.split(" ")[0] || "";
-                contact["Last Name"] = fullName.split(" ").slice(1).join(" ") || "";
-                contact.Title = "Owner";
-                contact["Contact Address"] = getText(
-                    owner,
-                    `[data-testid="people-contact-address-id"]`
-                );
-
-                const ownerContactInfoSections = owner.querySelectorAll(
-                    ".MuiDivider-root ~ .MuiGrid-container > .MuiGrid-item"
-                );
-
-                for (let ownerContactInfoSection of ownerContactInfoSections) {
-                    const sectionTitle = getText(ownerContactInfoSection, "p.MuiTypography-root");
-
-                    if (sectionTitle === "Phone Numbers") {
-                        const phoneNumberContacts = phoneSection(ownerContactInfoSection);
-
-                        for (const phoneNumberContact of phoneNumberContacts) {
-                            contact = { ...contact, ...phoneNumberContact };
-                            properties.push({ ...property, ...contact });
-                        }
-                    }
-                    if (sectionTitle === "Emails") {
-                        const emails = ownerContactInfoSection.querySelectorAll(".MuiGrid-item");
-
-                        if (emails.length) {
-                            for (const email of emails) {
-                                contact["Email"] = getText(email, ".MuiTypography-root");
-                                contact["Phone Number"] = "";
-                                contact.Outreach = "Email";
-
-                                properties.push({ ...property, ...contact });
-                            }
-                        }
-                    }
-                }
+            if (url.includes("page=")) {
+                pageNumber = Number(url.split("page=").pop());
+                nextPage = pageNumber + 1;
+                nextUrl = `${url.split("page=")[0]}page=${nextPage}`;
+            } else {
+                nextUrl = `${url}?page=${nextPage}`;
             }
         }
 
-        // * -------------- Section: Contacts
-        let contactNameSections = document.querySelectorAll(`[data-testid="contact-item"]`);
-        let contactFieldsSections = document.querySelectorAll(
-            `[data-testid="contact-item"]  ~ div`
-        );
-        const numContacts = contactNameSections.length;
+        writeJson(allProspects, FILE_NAME);
 
-        for (let i = 0; i < numContacts; i++) {
-            let contact = {};
-
-            const contactName = getText(contactNameSections[i], "p.MuiTypography-root");
-            contact.Title = getText(
-                contactNameSections[i],
-                "p.MuiTypography-colorTextSecondary:last-child"
-            );
-
-            contact["Full Name"] = contactName;
-            contact["First Name"] = contactName.split(" ")[0] || "";
-            contact["Last Name"] = contactName.split(" ").slice(1).join(" ") || "";
-            contact["Contact Address"] = getText(
-                contactFieldsSections[i],
-                `[data-testid="people-contact-address-id"]`
-            );
-
-            const contactInfoSections = contactFieldsSections[i].querySelectorAll(
-                ".MuiBox-root > .MuiBox-root > .MuiGrid-container > div"
-            );
-
-            for (const contactInfoSection of contactInfoSections) {
-                const sectionTitle = getText(contactInfoSection, "p.MuiTypography-root");
-
-                if (sectionTitle === "Phone Numbers") {
-                    const phoneNumberContacts = phoneSection(contactInfoSection);
-
-                    for (const phoneNumberContact of phoneNumberContacts) {
-                        contact = { ...contact, ...phoneNumberContact };
-                        properties.push({ ...property, ...contact });
-                    }
-                }
-                if (sectionTitle === "Emails") {
-                    const emails = contactInfoSection.querySelectorAll(".MuiGrid-item");
-
-                    if (emails.length) {
-                        for (const email of emails) {
-                            contact["Email"] = getText(email, ".MuiTypography-root");
-                            contact["Phone Number"] = "";
-                            contact.Outreach = "Email";
-
-                            properties.push({ ...property, ...contact });
-                        }
-                    }
-                }
-            }
-        }
-
-        const [currentProperty, , totalProperties] = document
-            .querySelector("#search-box-results")
-            .innerText.split("\n");
-
-        // * -------------- Export properties --------------
-        if (currentProperty.replace(",", "") === totalProperties.replace(",", "")) {
-            console.log("currentProperty === totalProperties");
-            exportFile(properties, `reonomy pages 0-${page}_${state || ""}.json`);
-            properties = [];
-            run = false;
-        }
-        if (page !== 0 && page % 100 === 0) {
-            exportFile(properties, `reonomy pages 0-${page}_${state || ""}.json`);
-            properties = [];
-        }
-        if (!run) {
-            exportFile(properties, `reonomy pages 0-${page}_${state || ""}.json`);
-            properties = [];
-        }
-
-        // * -------------- Next page --------------
-        document.querySelector("#search-results-step-up").click();
-        page++;
+        // close browser
+        await browser.close();
+        console.log("Browser closed");
     } catch (error) {
-        console.log("ERROR ---", error);
+        // close browser
+        await browser.close();
+        console.log("Browser closed");
 
-        exportFile(properties, `reonomy pages 0-${page}_${state || ""}.json`);
-        properties = [];
-        run = false;
+        writeJson(allProspects, FILE_NAME);
+
+        console.log(`ERROR --- reonomy() --- ${error}`);
     }
-}
+})();

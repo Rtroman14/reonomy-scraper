@@ -3,14 +3,15 @@ require("dotenv").config();
 const puppeteer = require("puppeteer");
 const pLimit = require("p-limit");
 
+const _ = require("./src/Helpers");
 const scrapeProperty = require("./src/scrapeProperty");
 const writeCsv = require("./src/writeCsv");
 const writeJson = require("./src/writeJson");
 const moment = require("moment");
 
 const NUM_TABS = 1;
-const FILE_NAME = "";
-const REONOMY_URL = "";
+const FILE_NAME = "Dorothy";
+const REONOMY_URL = "https://app.reonomy.com/!/search/c9719ba2-a58c-4aeb-a3de-fd44f73c705e?page=20";
 
 (async () => {
     const limit = pLimit(NUM_TABS);
@@ -19,10 +20,16 @@ const REONOMY_URL = "";
     let allProspects = [];
     let pages = 1;
     let morePages = true;
-    let pageNumber = 1;
+    // let pageNumber = 1;
     let time;
-    let nextUrl;
-    let nextPage = 2;
+    // let nextUrl;
+    // let nextPage = 2;
+
+    let metadata = {
+        pageNumber: 1,
+        nextPage: 2,
+        nextUrl: "",
+    };
 
     try {
         browser = await puppeteer.launch({ headless: true });
@@ -69,21 +76,23 @@ const REONOMY_URL = "";
 
             let url = await page.url();
 
-            if (url.includes("page=")) {
-                pageNumber = Number(url.split("page=").pop());
-                nextPage = pageNumber + 1;
-                nextUrl = `${url.split("page=")[0]}page=${nextPage}`;
-            } else {
-                nextUrl = `${url}?page=${nextPage}`;
-            }
+            // if (url.includes("page=")) {
+            //     pageNumber = Number(url.split("page=").pop());
+            //     nextPage = pageNumber + 1;
+            //     nextUrl = `${url.split("page=")[0]}page=${nextPage}`;
+            // } else {
+            //     nextUrl = `${url}?page=${nextPage}`;
+            // }
 
-            if (nextPage <= 200) {
-                await page.goto(nextUrl, { waitUntil: "networkidle0" });
+            metadata = _.pageMetadata(url, metadata);
 
-                console.log("Next url:", nextUrl);
+            if (metadata.nextPage <= 200) {
+                await page.goto(metadata.nextUrl, { waitUntil: "networkidle0" });
+
+                console.log("Next url:", metadata.nextUrl);
                 time = moment().format("M.D.YYYY-hh:mm");
 
-                writeJson(allProspects, `${FILE_NAME}_P=${pageNumber}_T=${time}`);
+                writeJson(allProspects, `${FILE_NAME}_P=${metadata.pageNumber}_T=${time}`);
 
                 pages++;
             } else {
@@ -102,7 +111,7 @@ const REONOMY_URL = "";
         console.log("Left off:", url);
 
         time = moment().format("M.D.YYYY-hh:mm");
-        writeJson(allProspects, `${FILE_NAME}_P=${pageNumber}_T=${time}`);
+        writeJson(allProspects, `${FILE_NAME}_P=${metadata.pageNumber}_T=${time}`);
     } catch (error) {
         // close browser
         await browser.close();
@@ -110,7 +119,9 @@ const REONOMY_URL = "";
 
         console.log(`ERROR --- reonomy() --- ${error}`);
 
-        time = moment().format("M.D.YYYY-hh:mm");
-        writeJson(allProspects, `${FILE_NAME}_P=${pageNumber}_T=${time}`);
+        if (allProspects.length) {
+            time = moment().format("M.D.YYYY-hh:mm");
+            writeJson(allProspects, `${FILE_NAME}_P=${metadata.pageNumber}_T=${time}`);
+        }
     }
 })();

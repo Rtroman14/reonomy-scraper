@@ -96,6 +96,18 @@ class Helpers {
 
         return contacts;
     };
+
+    pageMetadata = (url, metadata) => {
+        if (url.includes("page=")) {
+            metadata.pageNumber = Number(url.split("page=").pop());
+            metadata.nextPage = metadata.pageNumber + 1;
+            metadata.nextUrl = `${url.split("page=")[0]}page=${metadata.nextPage}`;
+        } else {
+            metadata.nextUrl = `${url.split("page=")[0]}page=${metadata.nextPage}`;
+        }
+
+        return metadata;
+    };
 }
 
 module.exports = new Helpers();

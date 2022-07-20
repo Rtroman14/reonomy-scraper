@@ -1,1 +1,8 @@
 https://community.auth0.com/t/scripting-with-puppeteer/12662
+
+STEPS OF OPERATION
+1. Get property ids --> Reonomy.propertyIDs || loop through pages to get reonomyIDs
+2. With the array of propertyIDs, loop through each one and do the following:
+    a. Get property stats --> Reonomy.propertyStats
+    b. Get list of propert contact IDs --> Reonomy.propertyContactIDs
+    c. With array of contactIDs, fetch contact data --> Reonomy.propertyContacts
