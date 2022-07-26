@@ -5,25 +5,20 @@ const pLimit = require("p-limit");
 
 const _ = require("./src/Helpers");
 const scrapeProperty = require("./src/scrapeProperty");
-const writeCsv = require("./src/writeCsv");
 const writeJson = require("./src/writeJson");
 const moment = require("moment");
 
 const NUM_TABS = 1;
-const FILE_NAME = "Dorothy";
-const REONOMY_URL = "https://app.reonomy.com/!/search/c9719ba2-a58c-4aeb-a3de-fd44f73c705e?page=20";
+const FILE_NAME = "";
+const REONOMY_URL = "";
 
 (async () => {
     const limit = pLimit(NUM_TABS);
 
     let browser;
     let allProspects = [];
-    let pages = 1;
     let morePages = true;
-    // let pageNumber = 1;
     let time;
-    // let nextUrl;
-    // let nextPage = 2;
 
     let metadata = {
         pageNumber: 1,
@@ -75,14 +70,6 @@ const REONOMY_URL = "https://app.reonomy.com/!/search/c9719ba2-a58c-4aeb-a3de-fd
             }
 
             let url = await page.url();
-
-            // if (url.includes("page=")) {
-            //     pageNumber = Number(url.split("page=").pop());
-            //     nextPage = pageNumber + 1;
-            //     nextUrl = `${url.split("page=")[0]}page=${nextPage}`;
-            // } else {
-            //     nextUrl = `${url}?page=${nextPage}`;
-            // }
 
             metadata = _.pageMetadata(url, metadata);
 
