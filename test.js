@@ -1,36 +1,44 @@
-const REONOMY_URL = "https://app.reonomy.com/!/search/c14bdcad-bf3a-462f-acf2-6e9cdaf66341";
-// const REONOMY_URL = "https://app.reonomy.com/!/search/c14bdcad-bf3a-462f-acf2-6e9cdaf66341?page=2";
-let website = REONOMY_URL;
-let pageNumber = 1;
-let nextUrl;
-let url = REONOMY_URL;
-let nextPage = 2;
-
+const axios = require("axios");
+const Reonomy = require("./src/Reonomy");
 const _ = require("./src/Helpers");
+const fetchPropertyData = require("./src/fetchPropertyData");
 
-let metadata = {
-    pageNumber: 1,
-    nextPage: 2,
-    nextUrl: "",
+const headers = {
+    accept: "*/*",
+    "accept-language": "en-US,en;q=0.9",
+    authorization:
+        "Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IlJUWkdOamN3TlVVMFJFTTJORGt6UlRNd1JVSTVSVGs1TlVZeE56UkRNVUUzUlVNd09UTkVOdyJ9.eyJpc3MiOiJodHRwczovL2F1dGgucmVvbm9teS5jb20vIiwic3ViIjoiYXV0aDB8ZTdjMTM4M2MtNjQ0MC00MjU1LWEzZjAtYTllZmZmY2NiYmE0IiwiYXVkIjpbImh0dHBzOi8vYXBwLnJlb25vbXkuY29tL3YyLyIsImh0dHBzOi8vcmVvbm9teS1wcmQuYXV0aDAuY29tL3VzZXJpbmZvIl0sImlhdCI6MTY1OTExNjQzNiwiZXhwIjoxNjU5MjAyODM2LCJhenAiOiJVVHFqSVpmNWpxRTBSb1JDSlBEMjE2YVQ5Q1dacnEyQyIsInNjb3BlIjoib3BlbmlkIHByb2ZpbGUgZW1haWwifQ.YZn_3dxqHSicpmeYoKytw-QLHdIkayKDp78_7r1yx4Yuauw1H42ayv-GLw5xoNucA-CywA_lxyab3GikcqC1jeh3j5O3nDPlZZ9MOl1aW0HUCOlJ_Ag7p85oTGLHsFc5OLuAwrWUU_qDEUfMfy_7EzNoRg1SHRPrsCDe4IoR02QeF_9VyhGaDP5Fa6IOx928kbCdjYIRWhatI1pq_Pp7ENNqEBsL3qh-pTu7CD6uKHGE-E3qM_WuQy_MH1CmcAf08IPlftue1AS_1u6N7qsRBK6XGRFc8yTQDdO4aXfk35aLLofut-yV5b7ytwzxC6k6gJRO0LyKqtDtTY3PQuc6oQ",
+    "content-type": "application/json",
+    "sec-ch-ua": '".Not/A)Brand";v="99", "Google Chrome";v="103", "Chromium";v="103"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"macOS"',
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-site",
+    Referer: "https://app.reonomy.com/",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
 };
 
-// if (url.includes("page=")) {
-//     pageNumber = Number(url.split("page=").pop());
-//     nextPage = pageNumber + 1;
-//     nextUrl = `${url.split("page=")[0]}page=${nextPage}`;
+const body =
+    '{"settings":{"building_area":{"min":5000},"land_use_code":["000","249","250","251","290","299","998","999","0010","0017","0025","0026","0500","0510","0511","0512","0513","0520","0521","0522","0523","0529","0532","0540","0599","4019","4024","6503","6504","6511","6513","8500","8501","8503","8504","null","201","203","312","313","333","446","0015","0016","7022","607","611","9300","9301","9302","9303","9304","9305","9307","9308","9309","620","640","0018","641","642","754","8011","864","6507","867","0011","0012","0013","0014","0021","0022","879","6508","885","0020","7018","7020","415","420","8002","103","202","2044","245","246","279","2003","281","2042","301","3010","106","113","131","132","133","236","1100","1104","1105","1106","1107","1110","1112","9217","111","1005","115","1101","118","1111","119","155","1108","1113","136","1109","151","1103","157","9106","165","1102","114","0024","421","453","8004","490","7010","542","600","8006","9100","9200","9207","601","9000","9209","602","9212","603","9211","604","9210","605","9208","606","9205","610","4001","9215","614","615","9213","630","9201","650","652","654","655","656","664","665","2032","9102","9103","9203","660","670","680","9204","757","4027","9111","9202","798","4008","808","6501","818","872","6506","880","9112","9216","127","2034","2040","2054","130","2039","142","2033","164","206","134","200","211","269","0530","0539","2000","2043","3011","3012","213","2052","336","2031","148","156","9107","212","9108","9109","214","215","4011","225","2037","226","230","9104","9214","9219","234","2046","235","2011","239","352","353","5011","252","2036","255","2035","609","9218","618","9001","671","675","9101","690","699","0019","4030","701","2038","703","795","796","4020","4021","706","4005","709","4022","4031","712","4012","721","4004","724","4026","725","4007","727","4009","728","750","4015","733","4016","742","4028","745","4013","755","4003","4023","766","4014","769","4029","770","775","4018","780","4006","784","4010","790","4002","797","9206","801","5009","6509","839","5014","850","6510","860","0515","6502","863","875","9110","9220","204","2024","205","2023","210","2025","217","2004","2005","220","257","276","278","282","284","2001","2002","2017","2030","2045","2050","2051","2053","221","262","2013","240","2026","2047","242","243","285","2016","2048","261","2012","2014","2015","266","268","2018","2019","2020","2021","2022","2027","2041","270","273","2007","2008","2009","2010","283","2006","286","2029","207","6004","208","218","258","300","338","5000","5001","5008","5013","5018","5019","5020","6008","6016","303","304","342","5005","6020","308","6018","309","310","5016","5017","311","6023","320","6000","6015","321","5010","322","5012","323","324","5002","5006","5015","326","6010","328","6007","331","6019","334","6009","344","6006","349","6003","6014","354","6011","358","5004","6024","361","6021","364","5003","6002","800","877","6001","6500","6505","6512","806","0514","830","883","6013","886","899","209","222","223","3007","237","3005","3006","9105","238","244","3000","3001","3002","3003","3004","3009","247","3008","229","302","6005","316","5007","318","6022","356","6012","366","6017","500","505","7000","7015","7021","7023","501","0524","7016","502","2028","7017","509","7002","510","511","7001","7013","512","550","7005","7014","514","515","7008","520","530","0525","0526","7004","533","560","7003","7012","562","7007","570","7019","575","7006","787","4017"],"map_filters":{"polygons":[{"coordinates":[{"lat":39.66982180658725,"lon":-105.18762053627897},{"lat":39.84718146705208,"lon":-104.93356169838835},{"lat":39.79549875172143,"lon":-104.85665740151335},{"lat":39.630699095293174,"lon":-105.13268889565397}]}]},"owner_contact_information":["has_green_phones"],"sort":[{"name":"year_renovated","order":"desc"}]},"aggregations":[{"name":"geo_bounds"}]}';
 
-//     metadata.pageNumber = Number(url.split("page=").pop());
-//     metadata.nextPage = pageNumber + 1;
-//     metadata.nextUrl = `${url.split("page=")[0]}page=${metadata.nextPage}`;
-// } else {
-//     nextUrl = `${url}?page=${nextPage}`;
-//     metadata.nextUrl = `${url.split("page=")[0]}page=${metadata.nextPage}`;
-// }
+const Airtable = require("./src/Airtable");
+const writeJson = require("./src/writeJson");
+const BASE_ID = "appr7rcKd3W6oMdiC";
+const RECORD_ID = "recbj7CjpK2iNZDdg";
 
-metadata = _.pageMetadata(url, metadata);
+(async () => {
+    try {
+        const territoryRecord = await Airtable.getRecord(BASE_ID, RECORD_ID);
+        const { data: propertyIDs } = await axios.get(territoryRecord["Property IDs"][0].url);
 
-// console.log({ pageNumber });
-// console.log({ nextPage });
-// console.log({ nextUrl });
+        const propertyID = propertyIDs[0];
 
-console.log(metadata);
+        const propertyDataReq = propertyIDs.slice(0, 5).map((id) => fetchPropertyData(headers, id));
+
+        const propertyDataRes = await Promise.all(propertyDataReq);
+        console.log(propertyDataRes);
+    } catch (error) {
+        console.log(error);
+    }
+})();

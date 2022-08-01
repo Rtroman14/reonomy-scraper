@@ -1,44 +1,52 @@
 require("dotenv").config();
 
 const puppeteer = require("puppeteer");
+const axios = require("axios");
 
-const scrapeProperty = require("./src/scrapeProperty");
-const writeCsv = require("./src/writeCsv");
 const writeJson = require("./src/writeJson");
 const moment = require("moment");
+const Airtable = require("./src/Airtable");
+const Reonomy = require("./src/Reonomy");
+const _ = require("./src/Helpers");
+const fetchPropertyData = require("./src/fetchPropertyData");
 
-const FILE_NAME = "Dorothy";
-const REONOMY_URL = "https://app.reonomy.com/!/search/c9719ba2-a58c-4aeb-a3de-fd44f73c705e?page=20";
+const { BASE_ID, RECORD_ID, TOTAL_PROPERTIES } = require("./config");
+
+let browser;
+let propertyIDs;
+let allProperties = [];
+let lastProperty;
 
 (async () => {
-    let browser;
-    let allProspects = [];
-    let pages = 1;
-    let morePages = true;
-    let pageNumber = 1;
-    let time;
-    let nextUrl;
-    let nextPage = 2;
-
     try {
+        const territoryRecord = await Airtable.getRecord(BASE_ID, RECORD_ID);
+
+        if (!("Territory Url" in territoryRecord)) {
+            await browser.close();
+            throw new Error("'Territory Url' in AT not found.");
+        }
+        if (!("Location" in territoryRecord)) {
+            await browser.close();
+            throw new Error("'Location' in AT not found.");
+        }
+        if (territoryRecord.Status === "Completed") {
+            await browser.close();
+            throw new Error("This location has already been scraped!");
+        }
+
         browser = await puppeteer.launch({ headless: true });
         const page = await browser.newPage();
 
-        await page.setViewport({ width: 1366, height: 768 });
+        await _.configBrowser(page);
 
-        // robot detection incognito - console.log(navigator.userAgent);
-        await page.setUserAgent(
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36"
-        );
+        await page.goto(territoryRecord["Territory Url"], { waitUntil: "networkidle0" });
 
-        await page.goto(REONOMY_URL, { waitUntil: "networkidle0" });
-
-        // login
-        await page.waitForSelector(`input[name="email"]`, { visible: true });
-        await page.type(`input[name="email"]`, process.env.USERNAME, { delay: 100 }); // Types slower, like a user
-        await page.type(`input[name="password"]`, process.env.PASSWORD, { delay: 100 }); // Types slower, like a user
-        await page.click(`button[type="submit"]`);
-        console.log("Logged in");
+        const isLoggedIn = await Reonomy.login(page);
+        if (!isLoggedIn) {
+            // close browser
+            await browser.close();
+            throw new Error("Browser closed");
+        }
 
         let headers = false;
         let body = false;
@@ -56,34 +64,76 @@ const REONOMY_URL = "https://app.reonomy.com/!/search/c9719ba2-a58c-4aeb-a3de-fd
         });
 
         await page.waitForSelector(`[data-testid="summary-card"]`, { visible: true });
-        await page.goto(REONOMY_URL, { waitUntil: "networkidle0" });
+        await page.goto(territoryRecord["Territory Url"], { waitUntil: "networkidle0" });
         await page.waitForTimeout(15000);
         console.log("loaded");
 
-        if (headers && body) {
-            let url = await page.url();
-
-            if (url.includes("page=")) {
-                pageNumber = Number(url.split("page=").pop());
-                nextPage = pageNumber + 1;
-                nextUrl = `${url.split("page=")[0]}page=${nextPage}`;
-            } else {
-                nextUrl = `${url}?page=${nextPage}`;
+        // * Fetch all property IDs
+        if (!("Property IDs" in territoryRecord) && body && headers) {
+            propertyIDs = await Reonomy.allPropertyIDs(headers, body);
+            if (propertyIDs.length) {
+                console.log(
+                    `IMPORTANT! --> upload "Propety IDs - ${territoryRecord.Location}.json" to Airtable > Reonomy > Property IDs cell`
+                );
+                writeJson(propertyIDs, `Property IDs - ${territoryRecord.Location}`);
             }
         }
 
-        writeJson(allProspects, FILE_NAME);
+        if ("Property IDs" in territoryRecord && body && headers) {
+            const { data } = await axios.get(territoryRecord["Property IDs"][0].url);
+            propertyIDs = data;
+        }
 
-        // close browser
+        if ("Next Property ID" in territoryRecord && body && headers) {
+            propertyIDs = propertyIDs.splice(
+                propertyIDs.indexOf(territoryRecord["Next Property ID"]) + 1
+            );
+        }
+
+        if (propertyIDs.length) {
+            propertyIDs = propertyIDs.slice(0, TOTAL_PROPERTIES);
+
+            const iterations = Math.ceil(propertyIDs.length / 5);
+
+            for (let i = 1; i <= iterations; i++) {
+                const propertyIDsBatch = propertyIDs.splice(0, 5);
+
+                const propertyDataReq = propertyIDsBatch.map((id) =>
+                    fetchPropertyData(headers, id)
+                );
+
+                const propertyDataRes = await Promise.all(propertyDataReq);
+
+                allProperties = [...allProperties, ...propertyDataRes];
+
+                lastProperty = propertyIDsBatch[propertyIDsBatch.length - 1];
+
+                if (i % 10 === 0 || i === iterations) {
+                    console.log("Total properties scraped:", allProperties.length);
+                }
+
+                await _.wait(1.25);
+            }
+        }
+
+        const time = moment().format("M.D.YYYY-hh:mm");
+        writeJson(allProperties, `${territoryRecord.Location}_T=${time}`);
+
+        const status = lastProperty === allProperties.pop() ? "Completed" : "In Progress";
+
+        await Airtable.updateRecord(BASE_ID, RECORD_ID, {
+            Status: status,
+            "Next Property ID": lastProperty,
+        });
+        console.log("Next Property ID:", lastProperty);
+
         await browser.close();
-        console.log("Browser closed");
+        console.log("Closed browser");
     } catch (error) {
-        // close browser
         await browser.close();
         console.log("Browser closed");
+        writeJson(allProperties, territoryRecord.Location || "Prospects");
 
-        writeJson(allProspects, FILE_NAME);
-
-        console.log(`ERROR --- reonomy() --- ${error}`);
+        console.log(`ERROR - reonomy() --- ${error}`);
     }
 })();

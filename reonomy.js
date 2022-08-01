@@ -9,8 +9,8 @@ const writeJson = require("./src/writeJson");
 const moment = require("moment");
 
 const NUM_TABS = 1;
-const FILE_NAME = "";
-const REONOMY_URL = "";
+const FILE_NAME = "Beckwith";
+const REONOMY_URL = "https://app.reonomy.com/!/search/a9e79b19-28cd-408d-9679-5c035cd56887?page=2";
 
 (async () => {
     const limit = pLimit(NUM_TABS);
@@ -80,8 +80,6 @@ const REONOMY_URL = "";
                 time = moment().format("M.D.YYYY-hh:mm");
 
                 writeJson(allProspects, `${FILE_NAME}_P=${metadata.pageNumber}_T=${time}`);
-
-                pages++;
             } else {
                 morePages = false;
                 console.log("Finished scraping all pages!");

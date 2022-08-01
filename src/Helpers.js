@@ -103,11 +103,50 @@ class Helpers {
             metadata.nextPage = metadata.pageNumber + 1;
             metadata.nextUrl = `${url.split("page=")[0]}page=${metadata.nextPage}`;
         } else {
-            metadata.nextUrl = `${url.split("page=")[0]}page=${metadata.nextPage}`;
+            metadata.nextUrl = `${url.split("page=")[0]}?page=${metadata.nextPage}`;
         }
 
         return metadata;
     };
+
+    configBrowser = async (page) => {
+        await page.setViewport({ width: 1366, height: 768 });
+
+        // robot detection incognito - console.log(navigator.userAgent);
+        await page.setUserAgent(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36"
+        );
+    };
+
+    filteredContacts = (contacts) => {
+        if (contacts) {
+            return contacts.filter((contact) => {
+                if (contact.is_signatory) {
+                    return contact;
+                }
+                if (contact.relation !== "contact" && (contact.has_phone || contact.has_email)) {
+                    return contact;
+                }
+            });
+        } else {
+            return [];
+        }
+    };
+
+    filteredOwners = (owners) => {
+        if (owners) {
+            return owners.filter((owner) => {
+                if (owner.has_phone || owner.has_email) {
+                    return owner;
+                }
+                // TODO: owners filter by: entity_type === 'person' ???
+            });
+        } else {
+            return [];
+        }
+    };
+
+    wait = (second) => new Promise((res) => setTimeout(res, second * 1000));
 }
 
 module.exports = new Helpers();
