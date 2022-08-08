@@ -11,6 +11,8 @@ const _ = require("./src/Helpers");
 const fetchPropertyData = require("./src/fetchPropertyData");
 
 const { BASE_ID, RECORD_ID, TOTAL_PROPERTIES } = require("./config");
+const BATCH_PROPERTIES = 5;
+const WAIT = 1.5;
 
 let browser;
 let propertyIDs;
@@ -29,7 +31,7 @@ let lastProperty;
             await browser.close();
             throw new Error("'Location' in AT not found.");
         }
-        if (territoryRecord.Status === "Completed") {
+        if (territoryRecord.Status === "Complete") {
             await browser.close();
             throw new Error("This location has already been scraped!");
         }
@@ -93,10 +95,10 @@ let lastProperty;
         if (propertyIDs.length) {
             propertyIDs = propertyIDs.slice(0, TOTAL_PROPERTIES);
 
-            const iterations = Math.ceil(propertyIDs.length / 5);
+            const iterations = Math.ceil(propertyIDs.length / BATCH_PROPERTIES);
 
             for (let i = 1; i <= iterations; i++) {
-                const propertyIDsBatch = propertyIDs.splice(0, 5);
+                const propertyIDsBatch = propertyIDs.splice(0, BATCH_PROPERTIES);
 
                 const propertyDataReq = propertyIDsBatch.map((id) =>
                     fetchPropertyData(headers, id)
@@ -112,14 +114,14 @@ let lastProperty;
                     console.log("Total properties scraped:", allProperties.length);
                 }
 
-                await _.wait(1.25);
+                await _.wait(WAIT);
             }
         }
 
         const time = moment().format("M.D.YYYY-hh:mm");
         writeJson(allProperties, `${territoryRecord.Location}_T=${time}`);
 
-        const status = lastProperty === allProperties.pop() ? "Completed" : "In Progress";
+        const status = lastProperty === allProperties.pop() ? "Complete" : "In Progress";
 
         await Airtable.updateRecord(BASE_ID, RECORD_ID, {
             Status: status,
