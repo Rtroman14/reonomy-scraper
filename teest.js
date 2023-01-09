@@ -1,21 +1,23 @@
 require("dotenv").config();
 
-const axios = require("axios");
-const writeJson = require("./src/writeJson");
-
 const Airtable = require("./src/Airtable");
-const BASE_ID = "appr7rcKd3W6oMdiC";
-const RECORD_ID = "recbj7CjpK2iNZDdg";
+const BASE_ID = "appAIW4VnbrWGlPWs";
+const RECORD_ID = "recIEJsdf8AZBFlZZ";
 
-const allProperties = [1, 2, 3, 4, 5, 6];
+let territoryRecord;
 
 (async () => {
     try {
-        for (let i = 1; i <= 6; i++) {
-            if (i % 2 === 0) {
-                console.log(i);
-            }
-        }
+        territoryRecord = await Airtable.getRecord(BASE_ID, RECORD_ID);
+
+        const reonomyData = {
+            Location: territoryRecord.Location,
+            Source: "Reonomy",
+            Tag: territoryRecord.Tag || "",
+        };
+        const reonomyDataFormatted = Airtable.formatted([reonomyData]);
+        const [newRecord] = await Airtable.createRecords(reonomyDataFormatted, BASE_ID, "Data");
+        console.log(newRecord.id);
     } catch (error) {
         console.log(error);
     }

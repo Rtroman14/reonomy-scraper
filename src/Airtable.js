@@ -85,11 +85,11 @@ class AirtableApi {
         }
     }
 
-    async createRecords(records, baseID) {
+    async createRecords(records, baseID, table) {
         try {
             const base = await this.config(baseID);
 
-            const res = await base("Prospects").create(records);
+            const res = await base(table).create(records);
 
             return res;
         } catch (error) {
@@ -142,6 +142,35 @@ class AirtableApi {
 
         return allContacts;
     }
+
+    formatted = (contacts) => contacts.map((contact) => ({ fields: { ...contact } }));
+
+    createDataRecord = async (territoryRecord, BASE_ID) => {
+        try {
+            const reonomyData = {
+                Location: territoryRecord.Location,
+                Source: "Reonomy",
+                Tag: territoryRecord.Tag || "",
+            };
+
+            const reonomyDataFormatted = this.formatted([reonomyData]);
+            const [newRecord] = await this.createRecords(reonomyDataFormatted, BASE_ID, "Data");
+
+            let dataRecord = {
+                baseID: BASE_ID,
+                recordID: newRecord.id,
+                client: "______",
+            };
+
+            if (territoryRecord?.Tag) {
+                dataRecord.client = `_____ - ${territoryRecord.Tag}`;
+            }
+
+            console.log(JSON.stringify(dataRecord));
+        } catch (error) {
+            console.log("Airtable.createDataRecord() ---", error);
+        }
+    };
 }
 
 module.exports = new AirtableApi(process.env.AIRTABLE_API);

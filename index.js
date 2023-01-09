@@ -18,10 +18,12 @@ let browser;
 let propertyIDs;
 let allProperties = [];
 let lastProperty;
+let territoryRecord;
+let allPropertyIDs = [];
 
 (async () => {
     try {
-        const territoryRecord = await Airtable.getRecord(BASE_ID, RECORD_ID);
+        territoryRecord = await Airtable.getRecord(BASE_ID, RECORD_ID);
 
         if (!("Territory Url" in territoryRecord)) {
             await browser.close();
@@ -70,9 +72,15 @@ let lastProperty;
         await page.waitForTimeout(15000);
         console.log("loaded");
 
+        if (!body || !headers) {
+            // error
+        }
+
         // * Fetch all property IDs
-        if (!("Property IDs" in territoryRecord) && body && headers) {
+        if (!("Property IDs" in territoryRecord)) {
             propertyIDs = await Reonomy.allPropertyIDs(headers, body);
+            allPropertyIDs = propertyIDs;
+
             if (propertyIDs.length) {
                 console.log(
                     `IMPORTANT! --> upload "Propety IDs - ${territoryRecord.Location}.json" to Airtable > Reonomy > Property IDs cell`
@@ -81,12 +89,13 @@ let lastProperty;
             }
         }
 
-        if ("Property IDs" in territoryRecord && body && headers) {
+        if ("Property IDs" in territoryRecord) {
             const { data } = await axios.get(territoryRecord["Property IDs"][0].url);
             propertyIDs = data;
+            allPropertyIDs = propertyIDs;
         }
 
-        if ("Next Property ID" in territoryRecord && body && headers) {
+        if ("Next Property ID" in territoryRecord) {
             propertyIDs = propertyIDs.splice(
                 propertyIDs.indexOf(territoryRecord["Next Property ID"]) + 1
             );
@@ -121,7 +130,7 @@ let lastProperty;
         const time = moment().format("M.D.YYYY-hh:mm");
         writeJson(allProperties, `${territoryRecord.Location}_T=${time}`);
 
-        const status = lastProperty === allProperties.pop() ? "Complete" : "In Progress";
+        const status = lastProperty == allPropertyIDs.pop() ? "Complete" : "In Progress";
 
         await Airtable.updateRecord(BASE_ID, RECORD_ID, {
             Status: status,
@@ -129,13 +138,15 @@ let lastProperty;
         });
         console.log("Next Property ID:", lastProperty);
 
+        await Airtable.createDataRecord(territoryRecord, BASE_ID);
+
         await browser.close();
         console.log("Closed browser");
     } catch (error) {
-        await browser.close();
+        await browser?.close();
         console.log("Browser closed");
-        writeJson(allProperties, territoryRecord.Location || "Prospects");
-
         console.log(`ERROR - reonomy() --- ${error}`);
+
+        writeJson(allProperties, territoryRecord.Location || "Prospects");
     }
 })();

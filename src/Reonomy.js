@@ -97,6 +97,24 @@ class Reonomy {
             return [];
         }
     };
+
+    company = async (headers, companyID) => {
+        try {
+            const res = await fetch(`https://api.reonomy.com/v3/companies/${companyID}`, {
+                headers,
+                Referer: "https://app.reonomy.com/",
+                referrerPolicy: "strict-origin-when-cross-origin",
+                method: "GET",
+            });
+
+            const data = await res.json();
+            return data;
+
+            // * Website = data.websites[0].url
+        } catch (error) {
+            return;
+        }
+    };
 }
 
 module.exports = new Reonomy();

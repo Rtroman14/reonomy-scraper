@@ -1,5 +1,5 @@
 module.exports = {
-    BASE_ID: "app8GKdvfg3E3myTe",
-    RECORD_ID: "rec0B8YuB1ZLugKFa",
-    TOTAL_PROPERTIES: 1500, // total properties to fetch
+    BASE_ID: "appq0ZjLwCzKuDWQD",
+    RECORD_ID: "reciIkmIji2NJ6ur7",
+    TOTAL_PROPERTIES: 2000, // total properties to fetch
 };
