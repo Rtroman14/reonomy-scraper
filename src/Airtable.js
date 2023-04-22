@@ -156,17 +156,17 @@ class AirtableApi {
             const reonomyDataFormatted = this.formatted([reonomyData]);
             const [newRecord] = await this.createRecords(reonomyDataFormatted, BASE_ID, "Data");
 
-            let dataRecord = {
-                baseID: BASE_ID,
-                recordID: newRecord.id,
-                client: "______",
-            };
+            // let dataRecord = {
+            //     baseID: BASE_ID,
+            //     recordID: newRecord.id,
+            //     client: "______",
+            // };
 
-            if (territoryRecord?.Tag) {
-                dataRecord.client = `_____ - ${territoryRecord.Tag}`;
-            }
+            // if (territoryRecord?.Tag) {
+            //     dataRecord.client = `_____ - ${territoryRecord.Tag}`;
+            // }
 
-            console.log(JSON.stringify(dataRecord));
+            // console.log(JSON.stringify(dataRecord));
         } catch (error) {
             console.log("Airtable.createDataRecord() ---", error);
         }

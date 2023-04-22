@@ -74,6 +74,8 @@ let allPropertyIDs = [];
 
         if (!body || !headers) {
             // error
+            await browser.close();
+            throw new Error("Body or header is not defined.");
         }
 
         // * Fetch all property IDs
