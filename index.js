@@ -149,6 +149,8 @@ let allPropertyIDs = [];
         console.log("Browser closed");
         console.log(`ERROR - reonomy() --- ${error}`);
 
-        writeJson(allProperties, territoryRecord.Location || "Prospects");
+        if (allProperties.length) {
+            writeJson(allProperties, territoryRecord.Location || "Prospects");
+        }
     }
 })();
